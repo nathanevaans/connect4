@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Connect Four Game</title>
+    <style>
+        body, html {
+            height: 100%;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            grid-template-rows: repeat(6, 1fr);
+            gap: 10px;
+            width: 500px; 
+            height: 400px;
+            position: relative;
+        }
+
+        .game-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .game-wrapper .container {
+            margin-bottom: 20px;
+        }
+
+        .cell {
+            background-color: #eee;
+            border: 1px solid #ccc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            position: relative;
+        }
+
+        .piece {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            transition: top 0.4s ease-in-out;
+        }
+
+        .piece.red {
+            background-color: red;
+        }
+
+        .piece.yellow {
+            background-color: yellow;
+        }
+
+        .radio-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 10px;
+        }
+
+        .radio-container .radio-label {
+            display: flex;
+            align-items: center;
+            margin-right: 20px;
+            cursor: pointer;
+        }
+
+        .radio-container .radio-button {
+            position: relative;
+            width: 16px;
+            height: 16px;
+            background-color: #fff;
+            border: 2px solid #999;
+            border-radius: 3px;
+            cursor: pointer;
+            margin-right: 8px;
+        }
+
+        .radio-container .radio-button::before {
+            content: "";
+            display: none;
+            width: 10px;
+            height: 10px;
+            background-color: #999;
+            border-radius: 50%;
+            position: absolute;
+            top: 3px;
+            left: 3px;
+        }
+
+        .radio-container input[type="radio"]:checked + .radio-button::before {
+            display: block;
+        }
+
+        .radio-container .radio-label.custom {
+            position: relative;
+            padding-left: 24px;
+            cursor: pointer;
+        }
+
+        .radio-container .radio-label.custom::before {
+            content: "";
+            position: absolute;
+            top: 2px;
+            left: 0;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #999;
+            border-radius: 3px;
+            background-color: #fff;
+        }
+
+        .radio-container .radio-label.custom::after {
+            content: "";
+            position: absolute;
+            top: 7px;
+            left: 7px;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background-color: #999;
+            display: none;
+        }
+
+        .radio-container input[type="radio"]:checked + .radio-label.custom::after {
+            display: block;
+        }
+
+        .radio-container input[type="radio"] {
+            display: none;
+        }
+
+        #reset-button {
+            padding: 8px 16px;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #f44336;
+            width: 64px;
+        }
+
+        #reset-button:hover {
+            background-color: #d32f2f;
+        }
+
+        #reset-button:active {
+            background-color: #b71c1c;
+        }
+    </style>
+</head>
+<body>
+<div class="game-wrapper">
+    <div class="container"></div>
+    <div class="radio-container">
+        <div class="radio-label">
+            <input type="radio" name="player-color" value="red" id="red-radio" checked>
+            <label class="radio-button" for="red-radio"></label>
+            <span>Red</span>
+        </div>
+        <div class="radio-label">
+            <input type="radio" name="player-color" value="yellow" id="yellow-radio">
+            <label class="radio-button" for="yellow-radio"></label>
+            <span>Yellow</span>
+        </div>
+        <button id="reset-button">Reset</button>
+    </div>
+</div>
+
+<script>
+    const makeGrid = () => {
+        const container = document.querySelector(".container")
+        const cells = []
+
+        for (let row = 0; row < 6; row++) {
+            cells.push([])
+
+            for (let col = 0; col < 7; col++) {
+                const cell = document.createElement("div")
+                cell.classList.add("cell")
+                cell.dataset.indices = JSON.stringify({row, col})
+                cell.addEventListener("click", (event) => {
+                    const clickedCell = event.target
+                    const indices = JSON.parse(clickedCell.dataset.indices)
+
+                    let row = 0
+                    while (row < 6 && !cells[row][indices.col].hasChildNodes()) {
+                        row++
+                    }
+
+                    if (row > 0 && !cells[row - 1][indices.col].hasChildNodes()) {
+                        const piece = document.createElement("div")
+                        piece.classList.add("piece", playerColour)
+                        piece.addEventListener("click", (event) => {
+                            event.stopPropagation()
+                            const cell = event.target.parentNode
+                            const clickEvent = new MouseEvent("click")
+                            cell.dispatchEvent(clickEvent)
+                        })
+
+                        cells[row - 1][indices.col].appendChild(piece)
+
+                        playerColour = playerColour === "red" ? "yellow" : "red"
+                    }
+                })
+
+                cells[row].push(cell)
+                container.appendChild(cell)
+            }
+        }
+
+        return cells
+    }
+
+    let playerColour = "red"
+    cells = makeGrid()
+
+    const radioButtons = document.querySelectorAll('input[name="player-color"]')
+    radioButtons.forEach(button => {
+        button.addEventListener("input", event => {
+            playerColour = event.target.value
+            cells.forEach(row => {
+                row.forEach(cell => {
+                    if (cell.firstChild) {
+                        cell.lastChild.remove()
+                    }
+                })
+            })
+        })
+    })
+
+    const resetButton = document.getElementById("reset-button")
+    resetButton.addEventListener("click", () => {
+        cells.forEach(row => {
+            row.forEach(cell => {
+                if (cell.firstChild) {
+                    cell.lastChild.remove()
+                }
+            })
+        })
+        radioButtons.forEach(button => {
+            if (button.checked) {
+                playerColour = button.value
+            }
+        })
+    })
+</script>
+</body>
+</html>
