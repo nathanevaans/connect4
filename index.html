@@ -218,6 +218,7 @@
         if([column, row, diagonal1, diagonal2]
             .map(line => has4InARow(line, player))
             .reduce((acc, value) => acc || value, false)) {
+
             cells.forEach(row => {
                 row.forEach(cell => {
                     cell.removeEventListener("click", cellClickHandler)
@@ -321,6 +322,12 @@
             playerColour = event.target.value
             clearGrid()
 
+            cells.forEach(row => {
+                row.forEach(cell => {
+                    cell.addEventListener("click", cellClickHandler)
+                })
+            })
+
             if (playerColour === "yellow") {
                 playerColour = "red"
                 ai()
@@ -338,16 +345,16 @@
             }
         })
 
-        if (playerColour === "yellow") {
-            playerColour = "red"
-            ai()
-        }
-
         cells.forEach(row => {
             row.forEach(cell => {
                 cell.addEventListener("click", cellClickHandler)
             })
         })
+
+        if (playerColour === "yellow") {
+            playerColour = "red"
+            ai()
+        }
     })
 </script>
 </body>
