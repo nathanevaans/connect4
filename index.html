@@ -16,7 +16,7 @@
             grid-template-columns: repeat(7, 1fr);
             grid-template-rows: repeat(6, 1fr);
             gap: 10px;
-            width: 500px; 
+            width: 500px;
             height: 400px;
             position: relative;
         }
@@ -180,18 +180,67 @@
 </div>
 
 <script>
-    const isBoardFull = () => {}
+    const isBoardFull = () => {
+        let flag = true
+        for (let i = 0; i < cells.length; i++) {
+            for (let j = 0; j < cells[0].length; j++) {
+                flag &= cells[i][j].hasChildNodes()
+                if (!flag) {
+                    return false
+                }
+            }
+        }
+        return true
+    }
 
-    const isWin = () => {}
+    const has4InARow = (line, player) => {
+
+        const length = line.length;
+        for (let i = 0; i <= length - 4; i++) {
+            const subset = line.slice(i, i + 4);
+            if (subset.every(elem => elem.hasChildNodes() && elem.firstChild.classList.contains(player))) {
+                return true
+            }
+        }
+        return false
+    };
+
+    const isWin = () => {
+        const player = playerColour === "red" ? "yellow" : "red"
+
+        const column = cells.map(rows => rows[lastPlayedPiece.col])
+        const row = cells[lastPlayedPiece.row]
+        const gamma1 = lastPlayedPiece.row - lastPlayedPiece.col
+        const diagonal1 = cells.flatMap((row, index) => row[index - gamma1] ? row[index - gamma1] : [])
+        const gamma2 = lastPlayedPiece.row + lastPlayedPiece.col
+        const diagonal2 = cells.flatMap((row, index) => row[gamma2 - index] ? row[gamma2 - index] : [])
+
+        if([column, row, diagonal1, diagonal2]
+            .map(line => has4InARow(line, player))
+            .reduce((acc, value) => acc || value, false)) {
+            cells.forEach(row => {
+                row.forEach(cell => {
+                    cell.removeEventListener("click", cellClickHandler)
+                })
+            })
+
+            return true
+        }
+
+        return false
+    }
 
     const ai = () => {
         const cols = Array
-            .from({ length: 7 }, (_, index) => index)
+            .from({length: 7}, (_, index) => index)
             .sort(() => Math.random() - 0.5)
 
 
         for (let i = 0; i < cols.length; i++) {
-            if (makeMove(cols[i])) break
+            if (makeMove(cols[i])) {
+                isWin()
+                break
+            }
         }
     }
 
@@ -210,6 +259,8 @@
                 const clickEvent = new MouseEvent("click")
                 cell.dispatchEvent(clickEvent)
             })
+
+            lastPlayedPiece = {row: row - 1, col: col}
 
             cells[row - 1][col].appendChild(piece)
 
@@ -230,14 +281,7 @@
                 const cell = document.createElement("div")
                 cell.classList.add("cell")
                 cell.dataset.indices = JSON.stringify({row, col})
-                cell.addEventListener("click", (event) => {
-                    const clickedCell = event.target
-                    const indices = JSON.parse(clickedCell.dataset.indices)
-
-                    if (makeMove(indices.col)) {
-                        ai()
-                    }
-                })
+                cell.addEventListener("click", cellClickHandler)
 
                 cells[row].push(cell)
                 container.appendChild(cell)
@@ -247,20 +291,35 @@
         return cells
     }
 
+    const clearGrid = () => {
+        cells.forEach(row => {
+            row.forEach(cell => {
+                if (cell.firstChild) {
+                    cell.lastChild.remove()
+                }
+            })
+        })
+    }
+
+    const cellClickHandler = (event) => {
+            const clickedCell = event.target
+            const indices = JSON.parse(clickedCell.dataset.indices)
+            if (makeMove(indices.col)) {
+                if (!isWin() && !isBoardFull()) {
+                    ai()
+                }
+            }
+    }
+
     let playerColour = "red"
+    let lastPlayedPiece = {}
     cells = makeGrid()
 
     const radioButtons = document.querySelectorAll('input[name="player-color"]')
     radioButtons.forEach(button => {
         button.addEventListener("input", event => {
             playerColour = event.target.value
-            cells.forEach(row => {
-                row.forEach(cell => {
-                    if (cell.firstChild) {
-                        cell.lastChild.remove()
-                    }
-                })
-            })
+            clearGrid()
 
             if (playerColour === "yellow") {
                 playerColour = "red"
@@ -271,13 +330,8 @@
 
     const resetButton = document.getElementById("reset-button")
     resetButton.addEventListener("click", () => {
-        cells.forEach(row => {
-            row.forEach(cell => {
-                if (cell.firstChild) {
-                    cell.lastChild.remove()
-                }
-            })
-        })
+        clearGrid()
+
         radioButtons.forEach(button => {
             if (button.checked) {
                 playerColour = button.value
@@ -288,6 +342,12 @@
             playerColour = "red"
             ai()
         }
+
+        cells.forEach(row => {
+            row.forEach(cell => {
+                cell.addEventListener("click", cellClickHandler)
+            })
+        })
     })
 </script>
 </body>
