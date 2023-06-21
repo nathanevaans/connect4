@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Connect Four</title>
+    <title>Connect Four Game</title>
     <style>
         body, html {
             height: 100%;
@@ -180,6 +180,45 @@
 </div>
 
 <script>
+    const isBoardFull = () => {}
+
+    const isWin = () => {}
+
+    const ai = () => {
+        const cols = Array
+            .from({ length: 7 }, (_, index) => index)
+            .sort(() => Math.random() - 0.5)
+
+
+        for (let i = 0; i < cols.length; i++) {
+            if (makeMove(cols[i])) break
+        }
+    }
+
+    const makeMove = (col) => {
+        let row = 0
+        while (row < 6 && !cells[row][col].hasChildNodes()) {
+            row++
+        }
+
+        if (row > 0 && !cells[row - 1][col].hasChildNodes()) {
+            const piece = document.createElement("div")
+            piece.classList.add("piece", playerColour)
+            piece.addEventListener("click", (event) => {
+                event.stopPropagation()
+                const cell = event.target.parentNode
+                const clickEvent = new MouseEvent("click")
+                cell.dispatchEvent(clickEvent)
+            })
+
+            cells[row - 1][col].appendChild(piece)
+
+            playerColour = playerColour === "red" ? "yellow" : "red"
+            return true
+        }
+        return false
+    }
+
     const makeGrid = () => {
         const container = document.querySelector(".container")
         const cells = []
@@ -195,24 +234,8 @@
                     const clickedCell = event.target
                     const indices = JSON.parse(clickedCell.dataset.indices)
 
-                    let row = 0
-                    while (row < 6 && !cells[row][indices.col].hasChildNodes()) {
-                        row++
-                    }
-
-                    if (row > 0 && !cells[row - 1][indices.col].hasChildNodes()) {
-                        const piece = document.createElement("div")
-                        piece.classList.add("piece", playerColour)
-                        piece.addEventListener("click", (event) => {
-                            event.stopPropagation()
-                            const cell = event.target.parentNode
-                            const clickEvent = new MouseEvent("click")
-                            cell.dispatchEvent(clickEvent)
-                        })
-
-                        cells[row - 1][indices.col].appendChild(piece)
-
-                        playerColour = playerColour === "red" ? "yellow" : "red"
+                    if (makeMove(indices.col)) {
+                        ai()
                     }
                 })
 
@@ -238,6 +261,11 @@
                     }
                 })
             })
+
+            if (playerColour === "yellow") {
+                playerColour = "red"
+                ai()
+            }
         })
     })
 
@@ -255,6 +283,11 @@
                 playerColour = button.value
             }
         })
+
+        if (playerColour === "yellow") {
+            playerColour = "red"
+            ai()
+        }
     })
 </script>
 </body>
