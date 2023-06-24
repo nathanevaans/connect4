@@ -185,10 +185,10 @@
     //
 
     const ai = () => {
-        MCTSSearch(agent, 2)
+        MCTSSearch(agent, THINKING_TIME)
 
         const move = MCTSBestMove(agent)
-        
+
         // should never happen
         if (move === null) return
 
@@ -409,7 +409,8 @@
             disableClicks()
             if (!isWin(gameState, gameState.player) && !isBoardFull(gameState)) {
                 gameState.player = gameState.player === "red" ? "yellow" : "red"
-                ai()
+                disableClicks()
+                AITurn = true
             }
         }
     }
@@ -446,7 +447,7 @@
 
                 if (event.target.value === "yellow") {
                     disableClicks()
-                    ai()
+                    AITurn = true
                 } else {
                     enableClicks()
                 }
@@ -467,7 +468,7 @@
 
             if (playerColour === "yellow") {
                 disableClicks()
-                ai()
+                AITurn = true
             } else {
                 enableClicks()
             }
@@ -496,11 +497,29 @@
 
         gameState = newGameState()
         agent = newMCTS()
+
+        AITurn = false
     }
 
     let UIState = newUIState()
     let gameState = newGameState()
     let agent = newMCTS()
+
+    let THINKING_TIME = 3
+    let AITurn = false
+
+    const loop = () => {
+        if (AITurn) {
+            ai()
+            AITurn = false
+        }
+
+        setTimeout(() => {
+            animationFrameID = requestAnimationFrame(loop)
+        }, 1000)
+    }
+
+    let animationFrameID = requestAnimationFrame(loop)
 </script>
 </body>
 </html>
