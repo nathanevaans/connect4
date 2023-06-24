@@ -180,34 +180,182 @@
 </div>
 
 <script>
-    const ai = () => {
-        const moves = validMoves()
-        const moveIdx = Math.floor(Math.random() * moves.length)
+    //
+    // MCTS START
+    //
 
-        UIPlacePiece(moves[moveIdx])
-        statePlacePiece(gameState, moves[moveIdx])
-        if (!isWin() && !isBoardFull()) {
+    const ai = () => {
+        MCTSSearch(agent, 0.2)
+
+        const move = MCTSBestMove(agent)
+
+        UIPlacePiece(move)
+        statePlacePiece(gameState, move)
+        MCTSMove(agent, move)
+
+        if (!isWin(gameState, gameState.player) && !isBoardFull(gameState)) {
             gameState.player = gameState.player === "red" ? "yellow" : "red"
             enableClicks()
         }
     }
 
-    const isBoardFull = () => gameState.cells.flatMap(row => [...row]).every(cell => cell !== "")
+    const newNode = (move = null, parent = null) => ({
+        move: move,
+        parent: parent,
+        N: 0,
+        Q: 0,
+        children: new Map(),
+        outcome: "none"
+    })
 
-    const isWin = () => {
-        const gamma1 = gameState.lastPlayedPiece.row - gameState.lastPlayedPiece.col
-        const gamma2 = gameState.lastPlayedPiece.row + gameState.lastPlayedPiece.col
+    const nodeAddChildren = (node, children) => {
+        for (let [key, value] of children) {
+            node.children.set(key, value)
+        }
+    }
 
-        const column = gameState.cells.map(rows => rows[gameState.lastPlayedPiece.col])
-        const row = gameState.cells[gameState.lastPlayedPiece.row]
-        const diagonal1 = gameState.cells.flatMap((row, index) => row[index - gamma1] !== undefined ? row[index - gamma1] : [])
-        const diagonal2 = gameState.cells.flatMap((row, index) => row[gamma2 - index] !== undefined ? row[gamma2 - index] : [])
+    const nodeValue = (node, explore = Math.sqrt(2)) => {
+        if (node.N === 0) {
+            return explore === 0 ? 0 : Number.MAX_SAFE_INTEGER
+        } else {
+            return node.Q / node.N + explore * Math.sqrt(Math.log(node.parent.N) / node.N)
+        }
+    }
+
+    const newMCTS = () => ({
+        rootState: copyGameState(gameState),
+        root: newNode(),
+        runTime: 0,
+        nodeCount: 0,
+        numRollouts: 0
+    })
+
+    const MCTSSelectNode = (tree) => {
+        let node = tree.root
+        let state = copyGameState(tree.rootState)
+
+        while (node.children.size !== 0) {
+            const children = Array.from(node.children.values())
+            const values = children.map(node => nodeValue(node))
+            const maxValue = Math.max(...values)
+            const maxNodes = children.filter(node => nodeValue(node) === maxValue)
+
+            const moveIdx = Math.floor(Math.random() * maxNodes.length)
+            node = maxNodes[moveIdx]
+            statePlacePiece(state, node.move)
+            state.player = state.player === "red" ? "yellow" : "red"
+
+            if (node.N === 0) return [node, state]
+        }
+
+        if (MCTSExpand(node, state)) {
+            const children = Array.from(node.children.values())
+            const moveIdx = Math.floor(Math.random() * children.length)
+            node = children[moveIdx]
+            statePlacePiece(state, node.move)
+            state.player = state.player === "red" ? "yellow" : "red"
+        }
+
+        return [node, state]
+    }
+
+    const MCTSExpand = (parent, state) => {
+        if (isWin(state, state.player === "red" ? "yellow" : "red") || isBoardFull(state)) return false
+
+        const children = new Map()
+        validMoves(state).forEach(move => children.set(move, newNode(move, parent)))
+        nodeAddChildren(parent, children)
+        return true
+    }
+
+    const MCTSRollout = (tree, state) => {
+        while (!isWin(state, state.player === "red" ? "yellow" : "red") && !isBoardFull(state)) {
+            const moves = validMoves(state)
+            const moveIdx = Math.floor(Math.random() * moves.length)
+            statePlacePiece(state, moves[moveIdx])
+            state.player = state.player === "red" ? "yellow" : "red"
+        }
+
+        return stateOutcome(state)
+    }
+
+    const MCTSBackPropagate = (node, turn, outcome) => {
+        let reward = outcome === turn ? 0 : 1
+
+        while (node !== null) {
+            node.N += 1
+            node.Q += reward
+            node = node.parent
+            if (outcome === "draw") {
+                reward = 0
+            } else {
+                reward = 1 - reward
+            }
+        }
+    }
+
+    const MCTSSearch = (tree, timeLimit) => {
+        const startTime = performance.now()
+        let numRollouts = 0
+        let value = 0
+        while (value < timeLimit) {
+            value = (performance.now() - startTime) / 1000
+            const [node, state] = MCTSSelectNode(tree)
+            const outcome = MCTSRollout(tree, state)
+            MCTSBackPropagate(node, state.player, outcome)
+            numRollouts += 1
+        }
+
+        tree.runTime = (performance.now() - startTime) / 1000
+        tree.numRollouts = numRollouts
+    }
+
+    const MCTSBestMove = (tree) => {
+        if (isWin(tree.rootState, tree.rootState.player) || isBoardFull(tree.rootState)) {
+            return -1
+        }
+
+        const nodes = Array.from(tree.root.children.values())
+        const maxValue = Math.max(...nodes.map(node => node.N))
+        const maxNodes = nodes.filter(node => node.N === maxValue)
+        const nodeIdx = Math.floor(Math.random() * maxNodes.length)
+
+        return maxNodes[nodeIdx].move
+    }
+
+    const MCTSMove = (tree, move) => {
+        if (tree.root.children.has(move)) {
+            statePlacePiece(tree.rootState, move)
+            tree.rootState.player = tree.rootState.player === "red" ? "yellow" : "red"
+            tree.root = tree.root.children.get(move)
+            return
+        }
+
+        statePlacePiece(tree.rootState, move)
+        tree.rootState.player = tree.rootState.player === "red" ? "yellow" : "red"
+        tree.root = newNode()
+    }
+
+    //
+    // MCTS END
+    //
+
+    const isBoardFull = (state) => state.cells.flatMap(row => [...row]).every(cell => cell !== "")
+
+    const isWin = (state, player) => {
+        const gamma1 = state.lastPlayedPiece.row - state.lastPlayedPiece.col
+        const gamma2 = state.lastPlayedPiece.row + state.lastPlayedPiece.col
+
+        const column = state.cells.map(rows => rows[state.lastPlayedPiece.col])
+        const row = state.cells[state.lastPlayedPiece.row] ? state.cells[state.lastPlayedPiece.row] : []
+        const diagonal1 = state.cells.flatMap((row, index) => row[index - gamma1] !== undefined ? row[index - gamma1] : [])
+        const diagonal2 = state.cells.flatMap((row, index) => row[gamma2 - index] !== undefined ? row[gamma2 - index] : [])
 
         if ([column, row, diagonal1, diagonal2]
             .some(line => line
                 .some((_, i) => line
                     .slice(i, i + 4).length === 4 && line.slice(i, i + 4)
-                    .every(cell => cell === gameState.player)))) {
+                    .every(cell => cell === player)))) {
             disableClicks()
             return true
         }
@@ -215,7 +363,7 @@
     }
 
     const statePlacePiece = (state, move) => {
-        state.cells[move.row][move.col] = gameState.player
+        state.cells[move.row][move.col] = state.player
         state.lastPlayedPiece = move
     }
 
@@ -231,11 +379,11 @@
         UIState[move.row][move.col].appendChild(piece)
     }
 
-    const validMoves = () => Array.from({length: UIState[0].length}, (_, colIdx) => UIState.map(row => row[colIdx])).map((column, colIdx) => applyGravity(colIdx)).filter(move => move.row >= 0)
+    const validMoves = (state) => Array.from({length: state.cells[0].length}, (_, colIdx) => state.cells.map(row => row[colIdx])).map((column, colIdx) => applyGravity(state, colIdx)).filter(move => move.row >= 0)
 
-    const applyGravity = (column) => {
+    const applyGravity = (state, column) => {
         let row = 0
-        while (row < 6 && !UIState[row][column].hasChildNodes()) {
+        while (row < 6 && state.cells[row][column] === "") {
             row++
         }
         return {row: row - 1, col: column}
@@ -248,29 +396,41 @@
     const cellClickHandler = (event) => {
         const clickedCell = event.target
         const column = JSON.parse(clickedCell.dataset.column)
-        const move = applyGravity(column)
+        const move = applyGravity(gameState, column)
 
-        if (validMoves().find(validMove => validMove.row === move.row && validMove.col === move.col)) {
+        if (validMoves(gameState).find(validMove => validMove.row === move.row && validMove.col === move.col)) {
             UIPlacePiece(move)
             statePlacePiece(gameState, move)
+            MCTSMove(agent, move)
             disableClicks()
-            if (!isWin() && !isBoardFull()) {
+            if (!isWin(gameState, gameState.player) && !isBoardFull(gameState)) {
                 gameState.player = gameState.player === "red" ? "yellow" : "red"
                 ai()
             }
         }
     }
 
-    const copyGameState = () => ({
-        cells: gameState.cells.map(row => [...row]),
-        player: gameState.player,
-        lastPlayedPiece: {...gameState.lastPlayedPiece}
+    const stateOutcome = (state) => {
+        const player = state.player === "red" ? "yellow" : "red"
+        if (isWin(state, player)) {
+            return player
+        } else if (isBoardFull(state)) {
+            return "draw"
+        } else {
+            return "none"
+        }
+    }
+
+    const copyGameState = (state) => ({
+        cells: state.cells.map(row => [...row]),
+        player: state.player,
+        lastPlayedPiece: {row: state.lastPlayedPiece.row, col: state.lastPlayedPiece.col}
     })
 
     const newGameState = () => ({
         cells: Array.from({length: 6}, () => Array(7).fill("")),
         player: "red",
-        lastPlayedPiece: null
+        lastPlayedPiece: {}
     })
 
     const newUIState = () => {
@@ -331,10 +491,12 @@
         })
 
         gameState = newGameState()
+        agent = newMCTS()
     }
 
     let UIState = newUIState()
     let gameState = newGameState()
+    let agent = newMCTS()
 </script>
 </body>
 </html>
