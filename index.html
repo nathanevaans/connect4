@@ -180,182 +180,169 @@
 </div>
 
 <script>
-    const isBoardFull = () => {
-        let flag = true
-        for (let i = 0; i < cells.length; i++) {
-            for (let j = 0; j < cells[0].length; j++) {
-                flag &= cells[i][j].hasChildNodes()
-                if (!flag) {
-                    return false
-                }
-            }
+    const ai = () => {
+        const moves = validMoves()
+        const moveIdx = Math.floor(Math.random() * moves.length)
+
+        UIPlacePiece(moves[moveIdx])
+        statePlacePiece(gameState, moves[moveIdx])
+        if (!isWin() && !isBoardFull()) {
+            gameState.player = gameState.player === "red" ? "yellow" : "red"
+            enableClicks()
         }
-        return true
     }
 
-    const has4InARow = (line, player) => {
-
-        const length = line.length;
-        for (let i = 0; i <= length - 4; i++) {
-            const subset = line.slice(i, i + 4);
-            if (subset.every(elem => elem.hasChildNodes() && elem.firstChild.classList.contains(player))) {
-                return true
-            }
-        }
-        return false
-    };
+    const isBoardFull = () => gameState.cells.flatMap(row => [...row]).every(cell => cell !== "")
 
     const isWin = () => {
-        const player = playerColour === "red" ? "yellow" : "red"
+        const gamma1 = gameState.lastPlayedPiece.row - gameState.lastPlayedPiece.col
+        const gamma2 = gameState.lastPlayedPiece.row + gameState.lastPlayedPiece.col
 
-        const column = cells.map(rows => rows[lastPlayedPiece.col])
-        const row = cells[lastPlayedPiece.row]
-        const gamma1 = lastPlayedPiece.row - lastPlayedPiece.col
-        const diagonal1 = cells.flatMap((row, index) => row[index - gamma1] ? row[index - gamma1] : [])
-        const gamma2 = lastPlayedPiece.row + lastPlayedPiece.col
-        const diagonal2 = cells.flatMap((row, index) => row[gamma2 - index] ? row[gamma2 - index] : [])
+        const column = gameState.cells.map(rows => rows[gameState.lastPlayedPiece.col])
+        const row = gameState.cells[gameState.lastPlayedPiece.row]
+        const diagonal1 = gameState.cells.flatMap((row, index) => row[index - gamma1] !== undefined ? row[index - gamma1] : [])
+        const diagonal2 = gameState.cells.flatMap((row, index) => row[gamma2 - index] !== undefined ? row[gamma2 - index] : [])
 
-        if([column, row, diagonal1, diagonal2]
-            .map(line => has4InARow(line, player))
-            .reduce((acc, value) => acc || value, false)) {
-
-            cells.forEach(row => {
-                row.forEach(cell => {
-                    cell.removeEventListener("click", cellClickHandler)
-                })
-            })
-
+        if ([column, row, diagonal1, diagonal2]
+            .some(line => line
+                .some((_, i) => line
+                    .slice(i, i + 4).length === 4 && line.slice(i, i + 4)
+                    .every(cell => cell === gameState.player)))) {
+            disableClicks()
             return true
         }
-
         return false
     }
-
-    const ai = () => {
-        const cols = Array
-            .from({length: 7}, (_, index) => index)
-            .sort(() => Math.random() - 0.5)
-
-
-        for (let i = 0; i < cols.length; i++) {
-            if (makeMove(cols[i])) {
-                isWin()
-                break
-            }
-        }
+    
+    const statePlacePiece = (state, move) => {
+        state.cells[move.row][move.col] = gameState.player
+        state.lastPlayedPiece = move
     }
 
-    const makeMove = (col) => {
+    const UIPlacePiece = (move) => {
+        const piece = document.createElement("div")
+        piece.classList.add("piece", gameState.player)
+        piece.addEventListener("click", (event) => {
+            event.stopPropagation()
+            const cell = event.target.parentNode
+            const clickEvent = new MouseEvent("click")
+            cell.dispatchEvent(clickEvent)
+        })
+        UIState[move.row][move.col].appendChild(piece)
+    }
+
+    const validMoves = () => Array.from({length: UIState[0].length}, (_, colIdx) => UIState.map(row => row[colIdx])).map((column, colIdx) => applyGravity(colIdx)).filter(move => move.row >= 0)
+
+    const applyGravity = (column) => {
         let row = 0
-        while (row < 6 && !cells[row][col].hasChildNodes()) {
+        while (row < 6 && !UIState[row][column].hasChildNodes()) {
             row++
         }
-
-        if (row > 0 && !cells[row - 1][col].hasChildNodes()) {
-            const piece = document.createElement("div")
-            piece.classList.add("piece", playerColour)
-            piece.addEventListener("click", (event) => {
-                event.stopPropagation()
-                const cell = event.target.parentNode
-                const clickEvent = new MouseEvent("click")
-                cell.dispatchEvent(clickEvent)
-            })
-
-            lastPlayedPiece = {row: row - 1, col: col}
-
-            cells[row - 1][col].appendChild(piece)
-
-            playerColour = playerColour === "red" ? "yellow" : "red"
-            return true
-        }
-        return false
+        return {row: row - 1, col: column}
     }
 
-    const makeGrid = () => {
-        const container = document.querySelector(".container")
-        const cells = []
+    const disableClicks = () => UIState.forEach(row => row.forEach(cell => cell.removeEventListener("click", cellClickHandler)))
 
-        for (let row = 0; row < 6; row++) {
-            cells.push([])
+    const enableClicks = () => UIState.forEach(row => row.forEach(cell => cell.addEventListener("click", cellClickHandler)))
 
-            for (let col = 0; col < 7; col++) {
-                const cell = document.createElement("div")
-                cell.classList.add("cell")
-                cell.dataset.indices = JSON.stringify({row, col})
-                cell.addEventListener("click", cellClickHandler)
+    const cellClickHandler = (event) => {
+        const clickedCell = event.target
+        const column = JSON.parse(clickedCell.dataset.column)
+        const move = applyGravity(column)
 
-                cells[row].push(cell)
-                container.appendChild(cell)
+        const flag = validMoves().filter(validMove => validMove.row === move.row && validMove.col === move.col).length
+        if (flag === 1) {
+            UIPlacePiece(move)
+            statePlacePiece(gameState, move)
+            disableClicks()
+            if (!isWin() && !isBoardFull()) {
+                gameState.player = gameState.player === "red" ? "yellow" : "red"
+                ai()
             }
         }
-
-        return cells
     }
 
-    const clearGrid = () => {
-        cells.forEach(row => {
-            row.forEach(cell => {
-                if (cell.firstChild) {
-                    cell.lastChild.remove()
+    const copyGameState = () => ({
+      cells: gameState.cells.map(row => [...row]),
+      player: gameState.player,
+      lastPlayedPiece: {...gameState.lastPlayedPiece}
+    })
+
+    const newGameState = () => ({
+        cells: Array.from({length: 6}, () => Array(7).fill("")),
+        player: "red",
+        lastPlayedPiece: null
+    })
+
+    const newUIState = () => {
+        // radio buttons
+        const radioButtons = document.querySelectorAll('input[name="player-color"]')
+        radioButtons.forEach(button => {
+            button.addEventListener("input", event => {
+                newGame()
+
+                if (event.target.value === "yellow") {
+                    disableClicks()
+                    ai()
+                } else {
+                    enableClicks()
                 }
             })
         })
-    }
 
-    const cellClickHandler = (event) => {
-            const clickedCell = event.target
-            const indices = JSON.parse(clickedCell.dataset.indices)
-            if (makeMove(indices.col)) {
-                if (!isWin() && !isBoardFull()) {
-                    ai()
+        // reset button
+        const resetButton = document.getElementById("reset-button")
+        resetButton.addEventListener("click", () => {
+            newGame()
+
+            let playerColour
+            radioButtons.forEach(button => {
+                if (button.checked) {
+                    playerColour = button.value
                 }
-            }
-    }
-
-    let playerColour = "red"
-    let lastPlayedPiece = {}
-    cells = makeGrid()
-
-    const radioButtons = document.querySelectorAll('input[name="player-color"]')
-    radioButtons.forEach(button => {
-        button.addEventListener("input", event => {
-            playerColour = event.target.value
-            clearGrid()
-
-            cells.forEach(row => {
-                row.forEach(cell => {
-                    cell.addEventListener("click", cellClickHandler)
-                })
             })
 
             if (playerColour === "yellow") {
-                playerColour = "red"
+                disableClicks()
                 ai()
-            }
-        })
-    })
-
-    const resetButton = document.getElementById("reset-button")
-    resetButton.addEventListener("click", () => {
-        clearGrid()
-
-        radioButtons.forEach(button => {
-            if (button.checked) {
-                playerColour = button.value
+            } else {
+                enableClicks()
             }
         })
 
-        cells.forEach(row => {
-            row.forEach(cell => {
-                cell.addEventListener("click", cellClickHandler)
+        // cells
+        const container = document.querySelector(".container")
+        return Array.from({length: 6}, () => Array.from({length: 7}, (_, colIdx) => {
+            const cell = document.createElement("div")
+            cell.classList.add("cell")
+            cell.dataset.column = JSON.stringify(colIdx)
+            cell.addEventListener("click", cellClickHandler)
+            container.appendChild(cell)
+            return cell
+        }))
+    }
+
+    const newGame = () => {
+        // remove pieces from the UI
+        if (UIState) {
+            UIState.forEach(row => {
+                row.forEach(cell => {
+                    if (cell.firstChild) {
+                        cell.lastChild.remove()
+                    }
+                })
             })
-        })
-
-        if (playerColour === "yellow") {
-            playerColour = "red"
-            ai()
+        } else {
+            UIState = newUIState()
         }
-    })
+
+        // reset game state object
+        gameState = newGameState()
+    }
+
+    let UIState
+    let gameState
+    newGame()
 </script>
 </body>
 </html>
