@@ -213,7 +213,7 @@
         }
         return false
     }
-    
+
     const statePlacePiece = (state, move) => {
         state.cells[move.row][move.col] = gameState.player
         state.lastPlayedPiece = move
@@ -250,8 +250,7 @@
         const column = JSON.parse(clickedCell.dataset.column)
         const move = applyGravity(column)
 
-        const flag = validMoves().filter(validMove => validMove.row === move.row && validMove.col === move.col).length
-        if (flag === 1) {
+        if (validMoves().find(validMove => validMove.row === move.row && validMove.col === move.col)) {
             UIPlacePiece(move)
             statePlacePiece(gameState, move)
             disableClicks()
@@ -263,9 +262,9 @@
     }
 
     const copyGameState = () => ({
-      cells: gameState.cells.map(row => [...row]),
-      player: gameState.player,
-      lastPlayedPiece: {...gameState.lastPlayedPiece}
+        cells: gameState.cells.map(row => [...row]),
+        player: gameState.player,
+        lastPlayedPiece: {...gameState.lastPlayedPiece}
     })
 
     const newGameState = () => ({
@@ -323,26 +322,19 @@
     }
 
     const newGame = () => {
-        // remove pieces from the UI
-        if (UIState) {
-            UIState.forEach(row => {
-                row.forEach(cell => {
-                    if (cell.firstChild) {
-                        cell.lastChild.remove()
-                    }
-                })
+        UIState.forEach(row => {
+            row.forEach(cell => {
+                if (cell.firstChild) {
+                    cell.lastChild.remove()
+                }
             })
-        } else {
-            UIState = newUIState()
-        }
+        })
 
-        // reset game state object
         gameState = newGameState()
     }
 
-    let UIState
-    let gameState
-    newGame()
+    let UIState = newUIState()
+    let gameState = newGameState()
 </script>
 </body>
 </html>
