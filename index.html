@@ -188,6 +188,9 @@
         MCTSSearch(agent, 0.2)
 
         const move = MCTSBestMove(agent)
+        
+        // should never happen
+        if (move === null) return
 
         UIPlacePiece(move)
         statePlacePiece(gameState, move)
@@ -311,8 +314,9 @@
     }
 
     const MCTSBestMove = (tree) => {
+        // should never happen
         if (isWin(tree.rootState, tree.rootState.player) || isBoardFull(tree.rootState)) {
-            return -1
+            return null
         }
 
         const nodes = Array.from(tree.root.children.values())
