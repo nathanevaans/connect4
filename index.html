@@ -198,7 +198,6 @@
 
         if (!isWin(gameState, gameState.player) && !isBoardFull(gameState)) {
             gameState.player = gameState.player === "red" ? "yellow" : "red"
-            enableClicks()
         }
     }
 
@@ -355,15 +354,11 @@
         const diagonal1 = state.cells.flatMap((row, index) => row[index - gamma1] !== undefined ? row[index - gamma1] : [])
         const diagonal2 = state.cells.flatMap((row, index) => row[gamma2 - index] !== undefined ? row[gamma2 - index] : [])
 
-        if ([column, row, diagonal1, diagonal2]
+        return [column, row, diagonal1, diagonal2]
             .some(line => line
                 .some((_, i) => line
                     .slice(i, i + 4).length === 4 && line.slice(i, i + 4)
-                    .every(cell => cell === player)))) {
-            disableClicks()
-            return true
-        }
-        return false
+                    .every(cell => cell === player)));
     }
 
     const statePlacePiece = (state, move) => {
@@ -393,24 +388,20 @@
         return {row: row - 1, col: column}
     }
 
-    const disableClicks = () => UIState.forEach(row => row.forEach(cell => cell.removeEventListener("click", cellClickHandler)))
-
-    const enableClicks = () => UIState.forEach(row => row.forEach(cell => cell.addEventListener("click", cellClickHandler)))
-
     const cellClickHandler = (event) => {
-        const clickedCell = event.target
-        const column = JSON.parse(clickedCell.dataset.column)
-        const move = applyGravity(gameState, column)
+        if (!AITurn) {
+            const clickedCell = event.target
+            const column = JSON.parse(clickedCell.dataset.column)
+            const move = applyGravity(gameState, column)
 
-        if (validMoves(gameState).find(validMove => validMove.row === move.row && validMove.col === move.col)) {
-            UIPlacePiece(move)
-            statePlacePiece(gameState, move)
-            MCTSMove(agent, move)
-            disableClicks()
-            if (!isWin(gameState, gameState.player) && !isBoardFull(gameState)) {
-                gameState.player = gameState.player === "red" ? "yellow" : "red"
-                disableClicks()
-                AITurn = true
+            if (validMoves(gameState).find(validMove => validMove.row === move.row && validMove.col === move.col)) {
+                UIPlacePiece(move)
+                statePlacePiece(gameState, move)
+                MCTSMove(agent, move)
+                if (!isWin(gameState, gameState.player) && !isBoardFull(gameState)) {
+                    gameState.player = gameState.player === "red" ? "yellow" : "red"
+                    AITurn = true
+                }
             }
         }
     }
@@ -446,10 +437,7 @@
                 newGame()
 
                 if (event.target.value === "yellow") {
-                    disableClicks()
                     AITurn = true
-                } else {
-                    enableClicks()
                 }
             })
         })
@@ -467,10 +455,7 @@
             })
 
             if (playerColour === "yellow") {
-                disableClicks()
                 AITurn = true
-            } else {
-                enableClicks()
             }
         })
 
