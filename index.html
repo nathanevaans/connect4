@@ -198,6 +198,8 @@
 
         if (!isWin(gameState, gameState.player) && !isBoardFull(gameState)) {
             gameState.player = gameState.player === "red" ? "yellow" : "red"
+        } else {
+            disableClicks()
         }
     }
 
@@ -388,6 +390,22 @@
         return {row: row - 1, col: column}
     }
 
+    const disableClicks = () => {
+        UIState.forEach(row => {
+            row.forEach(cell => {
+                cell.removeEventListener("click", cellClickHandler)
+            })
+        })
+    }
+
+    const enableClicks = () => {
+        UIState.forEach(row => {
+            row.forEach(cell => {
+                cell.addEventListener("click", cellClickHandler)
+            })
+        })
+    }
+
     const cellClickHandler = (event) => {
         if (!AITurn) {
             const clickedCell = event.target
@@ -401,6 +419,8 @@
                 if (!isWin(gameState, gameState.player) && !isBoardFull(gameState)) {
                     gameState.player = gameState.player === "red" ? "yellow" : "red"
                     AITurn = true
+                } else {
+                    disableClicks()
                 }
             }
         }
@@ -484,6 +504,8 @@
         agent = newMCTS()
 
         AITurn = false
+
+        enableClicks()
     }
 
     let UIState = newUIState()
